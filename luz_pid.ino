@@ -56,12 +56,14 @@ void loop() {
     sonda_celsius = temp_sensor.getTempCByIndex(0);
   } while(sonda_celsius < -100);   // catch the sensor bug! (redings of -127.0 ºC)
   // print temperature and references
-  Serial.print("Temp:"); Serial.print(sonda_celsius);  
+  Serial.print("Min:"); Serial.print(25.0);
+  Serial.print(",Temp:"); Serial.print(sonda_celsius);
+  Serial.print(",Max:"); Serial.print(26.0);
 
   // get and print PID lamp_percentage (and blow it)
   float lamp_power = compute_PID(sonda_celsius);
   dimmer.setPower(lamp_power); // setPower(0-100%);
-  Serial.print(","); Serial.print("LampPower:"); Serial.print(lamp_power);
+  Serial.print(",LampPower:"); Serial.print(lamp_power);
   Serial.println();
   
   display_oled_numbers(sonda_celsius, lamp_power);
@@ -87,9 +89,7 @@ double compute_PID(double sonda_celsius){
   // proportional error
   double error = set_point - sonda_celsius;
   double kp_e = constrain(kp*error, -100, 100);  // negative values help to control, too
-  Serial.print(",");
-  Serial.print("KpE:");
-  Serial.print(kp_e);
+  Serial.print(",KpE:"); Serial.print(kp_e);
 
   // integral error
   cum_error += error * dif_time;
@@ -97,9 +97,7 @@ double compute_PID(double sonda_celsius){
   if(ki*cum_error > 100) cum_error = 100 / ki;
   if(ki*cum_error < -100) cum_error = -100 / ki;
   double ki_e = ki*cum_error;
-  Serial.print(",");
-  Serial.print("KiE:");
-  Serial.print(ki_e);
+  Serial.print(",KiE:"); Serial.print(ki_e);
 
   // derivative error (útil sólo cuando podemos compensar acelerones locos de incremento)
   // rate_error = (error - last_error)/dif_time;
