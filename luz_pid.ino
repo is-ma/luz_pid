@@ -38,6 +38,7 @@ void setup() {
 
   // dimmer requirements
   dimmer.begin(ON);
+  dimmer.setPower(0.0); // setPower(0-100%);
 
   // OLED 128x32 requirements
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
@@ -49,24 +50,27 @@ void setup() {
 // the loop function runs over and over again forever
 void loop() {  
   // get and print sonda_celsius
-  temp_sensor.requestTemperatures();
-  float sonda_celsius = temp_sensor.getTempCByIndex(0);
+  float sonda_celsius;
+  do{
+    temp_sensor.requestTemperatures();
+    sonda_celsius = temp_sensor.getTempCByIndex(0);
+  } while(sonda_celsius < -100);   // catch the sensor bug! (redings of -127.0 ºC)
   // print temperature and references
-  Serial.print("Temp:"); Serial.print(sonda_celsius); 
+  Serial.print("Temp:"); Serial.print(sonda_celsius);  
   // fixed temperature range
   Serial.print(","); Serial.print("Min:"); Serial.print(23.8);
   Serial.print(","); Serial.print("SetPoint:"); Serial.print(25.5);
   Serial.print(","); Serial.print("Max:"); Serial.print(26.6);
 
   // get and print PID lamp_percentage (and blow it)
-  float pid_to_lamp= compute_PID(sonda_celsius);
-  dimmer.setPower(pid_to_lamp); // setPower(0-100%);
-  Serial.print(","); Serial.print("PIDtoLamp:"); Serial.print(pid_to_lamp);
+  float lamp_power = compute_PID(sonda_celsius);
+  dimmer.setPower(lamp_power); // setPower(0-100%);
+  Serial.print(","); Serial.print("PIDtoLamp:"); Serial.print(lamp_power);
   Serial.println();
   
-  display_oled(sonda_celsius, pid_to_lamp);
+  display_oled_numbers(sonda_celsius, lamp_power);
   
-  delay(1000);
+  delay(100);
 }
 
 
@@ -113,26 +117,41 @@ double compute_PID(double sonda_celsius){
 }
 
 
-void display_oled(float sonda_celsius, float pid_to_lamp){
+void display_oled_numbers(float sonda_celsius, float pid_to_lamp){
   display.clearDisplay();
   display.setTextSize(2);
   display.setTextColor(WHITE);
   
   // display temperature
-  display.setCursor(4,1);
+  display.setCursor(1,1);
   display.print("T: ");
   if(sonda_celsius < 10) display.print(' ');
+  if(sonda_celsius < 100) display.print(' ');
   display.print(sonda_celsius, 1); // one decimal place
   display.drawCircle(105,4,2,WHITE);  // degree symbol
   display.setCursor(110,1);
   display.print("C");
   
   // display lamp power
-  display.setCursor(4,18);
+  display.setCursor(1,18);
   display.print("L: ");
   if(pid_to_lamp < 10) display.print(' ');
+  if(pid_to_lamp < 100) display.print(' ');
   display.print(pid_to_lamp, 1);  // one decimal place
   display.setCursor(110,18);
   display.print("%");
+  display.display();
+}
+void display_oled_text(String msg1, String msg2){
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  
+  // display msg1
+  display.setCursor(4,1);
+  display.print(msg1);
+  // display msg2
+  display.setCursor(4,18);
+  display.print(msg2);
   display.display();
 }
