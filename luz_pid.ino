@@ -32,6 +32,7 @@ Adafruit_SSD1306 display(OLED_RESET);
 #error("Altura incorrecta; cambie en la librería de Adafruit_SSD1306.h!");
 #endif
 
+
 void setup() {
   // temp sensor requirements
   temp_sensor.begin();
@@ -47,28 +48,39 @@ void setup() {
 }
 
 
+// Get temperature
+float globalCelsius;
+unsigned long previousTimeOfCelsiusUpdate = 0;
+
+void updateGlobalCelsiusEveryMillis(unsigned long ms){
+  if( millis() - previousTimeOfCelsiusUpdate < ms )
+    return;
+
+  previousTimeOfCelsiusUpdate = millis();
+
+  temp_sensor.requestTemperatures();
+  float localCelsius = temp_sensor.getTempCByIndex(0);  // could be -127ºC (is an error in DS18B20)
+
+  // update if temperature data is ~OK
+  if(localCelsius > -100) 
+    globalCelsius = localCelsius;
+}
+
+
 // the loop function runs over and over again forever
 void loop() {  
-  // get and print sonda_celsius
-  float sonda_celsius;
-  do{
-    temp_sensor.requestTemperatures();
-    sonda_celsius = temp_sensor.getTempCByIndex(0);
-  } while(sonda_celsius < -100);   // catch the sensor bug! (redings of -127.0 ºC)
-  // print temperature and references
-  Serial.print("Min:"); Serial.print(25.0);
-  Serial.print(",Temp:"); Serial.print(sonda_celsius);
-  Serial.print(",Max:"); Serial.print(26.0);
+  updateGlobalCelsiusEveryMillis(1000);
+  Serial.print("Temp:"); Serial.print(globalCelsius);
 
   // get and print PID lamp_percentage (and blow it)
-  float lamp_power = compute_PID(sonda_celsius);
-  dimmer.setPower(lamp_power); // setPower(0-100%);
-  Serial.print(",LampPower:"); Serial.print(lamp_power);
+  float lampPower = compute_PID(globalCelsius);
+  dimmer.setPower(lampPower); // setPower(0-100%);
+  Serial.print(",LampPower:"); Serial.print(lampPower);
   Serial.println();
   
-  display_oled_numbers(sonda_celsius, lamp_power);
+  display_oled_numbers(globalCelsius, lampPower);
   
-  delay(100);
+  delay(200);
 }
 
 
@@ -134,18 +146,5 @@ void display_oled_numbers(float sonda_celsius, float pid_to_lamp){
   display.print(pid_to_lamp, 1);  // one decimal place
   display.setCursor(110,18);
   display.print("%");
-  display.display();
-}
-void display_oled_text(String msg1, String msg2){
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setTextColor(WHITE);
-  
-  // display msg1
-  display.setCursor(4,1);
-  display.print(msg1);
-  // display msg2
-  display.setCursor(4,18);
-  display.print(msg2);
   display.display();
 }
