@@ -1,5 +1,14 @@
 /* CONTROL DE TEMPERATURA PID PARA GERMINADOR */
 
+#define DEBUG 0
+#if DEBUG == 1
+#define debug(x) Serial.print(x)
+#define debugln(x) Serial.println(x)
+#else
+#define debug(x)
+#define debugln(x)
+#endif
+
 // dimmer requirements (PZC:D2, PD:D3, Vcc, Gnd)
 #include <JELdimmer2.h>
 ACdimmer dimmer(3); // port for dimmer in pin 3
@@ -27,7 +36,6 @@ void checkTemperature(){
   float localCelsius = temp_sensor.getTempCByIndex(0);  // could be -127ºC (is an error in DS18B20)
   if(localCelsius > -100) 
     globalCelsius = localCelsius;
-  Serial.print("T:"); Serial.print(globalCelsius);
 }
 
 
@@ -48,7 +56,7 @@ double compute_PID(double sonda_celsius){
   // proportional error
   double error = set_point - sonda_celsius;
   double kp_e = constrain(kp*error, -100, 100);  // negative values help to control, too
-  Serial.print(",KpE:"); Serial.print(kp_e);
+  debug(",KpE:"); debug(kp_e);
 
   // integral error
   cum_error += error * dif_time;
@@ -56,7 +64,7 @@ double compute_PID(double sonda_celsius){
   if(ki*cum_error > 100) cum_error = 100 / ki;
   if(ki*cum_error < -100) cum_error = -100 / ki;
   double ki_e = ki*cum_error;
-  Serial.print(",KiE:"); Serial.print(ki_e);
+  debug(",KiE:"); debug(ki_e);
 
   // derivative error (útil sólo cuando podemos compensar acelerones locos de incremento)
   // rate_error = (error - last_error)/dif_time;
@@ -118,13 +126,17 @@ void setup() {
 
 // the loop function runs over and over again forever
 void loop() {
+  // debug info
+  debug("T:"); debug(globalCelsius);
+
   // get lamp power
   float lampPower = compute_PID(globalCelsius);
   dimmer.setPower(lampPower); // setPower(0-100%);
-  Serial.print(",LampPower:"); Serial.print(lampPower);
-  Serial.println();
-  
   display_oled_numbers(globalCelsius, lampPower);
-  
+
+  // debug info
+  debug(",LampPower:"); debug(lampPower);
+  debugln();
+
   delay(1000);
 }
