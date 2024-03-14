@@ -1,30 +1,11 @@
 /* CONTROL DE TEMPERATURA PID PARA GERMINADOR */
-// SET POINT -> 25.5ºC/78ºF
-//
-// D2: PZC - DIMMER
-// D3: PD  - DIMMER
-// Vcc + GND
-// 
-// D4: DATA - DS18B20
-// Vcc + GND
-//
-// A4: SDA - OLED 128x32
-// A5: SCK - OLED 128x32
-// Vcc + GND
 
-// temp sensor requirements
-#include <OneWire.h>
-#include <DallasTemperature.h>
-OneWire one_wire(4); // OneWire is in pin 4
-DallasTemperature temp_sensor(&one_wire); // inicializamos libreria del sensor
-
-
-// dimmer requirements
+// dimmer requirements (PZC:D2, PD:D3, Vcc, Gnd)
 #include <JELdimmer2.h>
 ACdimmer dimmer(3); // port for dimmer in pin 3
 
 
-// OLED 128x32 requirements
+// OLED 128x32 requirements (SDA:A4, SCK:A5, Vcc, Gnd)
 #include <Adafruit_SSD1306.h>
 #define OLED_RESET 13
 Adafruit_SSD1306 display(OLED_RESET);
@@ -33,54 +14,20 @@ Adafruit_SSD1306 display(OLED_RESET);
 #endif
 
 
-void setup() {
-  // temp sensor requirements
-  temp_sensor.begin();
-
-  // dimmer requirements
-  dimmer.begin(ON);
-  dimmer.setPower(0.0); // setPower(0-100%);
-
-  // OLED 128x32 requirements
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  
-  Serial.begin(9600);
-}
-
-
-// Get temperature
+// DS18B20 temperature sensor requirements (DATA:D4, Vcc, Gnd)
+#include <OneWire.h>
+#include <DallasTemperature.h>
+OneWire one_wire(4); // OneWire is in pin 4
+DallasTemperature temp_sensor(&one_wire); // inicializamos libreria del sensor
+#include "src/TimerOne/TimerOne.h"
 float globalCelsius;
-unsigned long previousTimeOfCelsiusUpdate = 0;
-
-void updateGlobalCelsiusEveryMillis(unsigned long ms){
-  if( millis() - previousTimeOfCelsiusUpdate < ms )
-    return;
-
-  previousTimeOfCelsiusUpdate = millis();
-
+void checkTemperature(){
+  // get temperature
   temp_sensor.requestTemperatures();
   float localCelsius = temp_sensor.getTempCByIndex(0);  // could be -127ºC (is an error in DS18B20)
-
-  // update if temperature data is ~OK
   if(localCelsius > -100) 
     globalCelsius = localCelsius;
-}
-
-
-// the loop function runs over and over again forever
-void loop() {  
-  updateGlobalCelsiusEveryMillis(1000);
-  Serial.print("Temp:"); Serial.print(globalCelsius);
-
-  // get and print PID lamp_percentage (and blow it)
-  float lampPower = compute_PID(globalCelsius);
-  dimmer.setPower(lampPower); // setPower(0-100%);
-  Serial.print(",LampPower:"); Serial.print(lampPower);
-  Serial.println();
-  
-  display_oled_numbers(globalCelsius, lampPower);
-  
-  delay(200);
+  Serial.print("T:"); Serial.print(globalCelsius);
 }
 
 
@@ -147,4 +94,37 @@ void display_oled_numbers(float sonda_celsius, float pid_to_lamp){
   display.setCursor(110,18);
   display.print("%");
   display.display();
+}
+
+
+void setup() {
+  // temp sensor requirements
+  temp_sensor.begin();
+
+  // dimmer requirements
+  dimmer.begin(ON);
+  dimmer.setPower(0.0); // setPower(0-100%);
+
+  // OLED 128x32 requirements
+  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+
+  // TimerOne interrumptions
+  Timer1.initialize(200000);
+  Timer1.attachInterrupt(checkTemperature);
+  
+  Serial.begin(9600);
+}
+
+
+// the loop function runs over and over again forever
+void loop() {
+  // get lamp power
+  float lampPower = compute_PID(globalCelsius);
+  dimmer.setPower(lampPower); // setPower(0-100%);
+  Serial.print(",LampPower:"); Serial.print(lampPower);
+  Serial.println();
+  
+  display_oled_numbers(globalCelsius, lampPower);
+  
+  delay(1000);
 }
